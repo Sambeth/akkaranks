@@ -1,4 +1,5 @@
 package com.sambeth.akkaranks
+package Orders
 
 import akka.NotUsed
 import akka.actor.typed.{Behavior, PostStop}
