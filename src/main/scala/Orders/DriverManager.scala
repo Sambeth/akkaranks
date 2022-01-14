@@ -38,6 +38,7 @@ object DriverManager {
                 context.log.info(s"Creating driver actor for $driverId-$name")
                 val driverActor = context.spawn(Driver(driverId, name), s"$driverId-$name")
                 replyTo ! DriverRegistered(driverActor)
+                context.log.info(s"sending reply to $replyTo")
                 driverManagerBehaviour(
                   driverIdToActors.updated(driverId, driverActor),
                   driverIdToStatus.updated(driverId, "Available")

@@ -1,45 +1,40 @@
 package com.sambeth.akkaranks
 package Orders
 
-import akka.NotUsed
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.actor.typed.scaladsl.Behaviors
 
 import java.util.UUID
 
 object OrderSupervisor {
-  trait Command
-  private final case class WrappedDriverManagerResponse(response: DriverManager.Response) extends Command
 
-  def apply(): Behavior[DriverManager.Response] = {
+  def apply(): Behavior[OrderSupervisor.Command] = {
     import DriverManager._
 
-    Behaviors.setup[Command] { context =>
-      val driverManagerResponseMapper: ActorRef[DriverManager.Response] = context.messageAdapter(rsp => WrappedDriverManagerResponse(rsp))
+    Behaviors.setup[OrderSupervisor.Command] { context =>
 
-      context.log.info("Orders Application has started")
-      // spawn driver manager actor
-      val driverManager = context.spawn(DriverManager(), "Order-Manager")
+      def active(): Behavior[OrderSupervisor.Command] = {
+        Behaviors.receiveMessage[OrderSupervisor.Command] {
+          case WrappedDriverManagerResponse(response) =>
+            response match {
+              case DriverRegistered(driver) =>
+                context.log.info("Something is happening herey")
+                context.log.info(s"Driver registered: ${driver.ref}")
+                Behaviors.same
+              case _ =>
+                context.log.info("Nothing was matched")
+                Behaviors.same
+            }
+        }
 
-      // spawn 3 driver actors
-      driverManager ! RegisterDriver(UUID.randomUUID(), "Samuel", driverManagerResponseMapper)
-      driverManager ! RegisterDriver(UUID.randomUUID(), "Clifford", driverManagerResponseMapper)
-      driverManager ! RegisterDriver(UUID.randomUUID(), "Phyll", driverManagerResponseMapper)
-
-      Behaviors.receiveMessage[Command] {
-        case wrapped: WrappedDriverManagerResponse =>
-          wrapped.response match {
-            case DriverRegistered(driver) =>
-              context.log.info(s"Driver registered: ${driver.ref}")
-              Behaviors.same
-          }
+        Behaviors.receiveSignal[OrderSupervisor.Command] {
+          case (_, PostStop) =>
+            context.log.info("Orders Application has stopped")
+            Behaviors.stopped
+        }
       }
 
-      Behaviors.receiveSignal {
-        case (_, PostStop) =>
-          context.log.info("Orders Application has stopped")
-          Behaviors.stopped
-      }
+      active()
     }
   }
 }
